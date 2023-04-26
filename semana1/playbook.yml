@@ -1,9 +1,63 @@
 - hosts: terraform-ansible
   become: yes
+
+  vars:
+    MYSQL_ROOT_PASSWORD: "{{ lookup('env', 'MYSQL_ROOT_PASSWORD') }}"
+    DATASOURCE_USERNAME: "{{ lookup('env', 'MYSQL_USER') }}"
+    DATASOURCE_PASSWORD: "{{ lookup('env', 'MYSQL_PASSWORD') }}"
+    MYSQL_DATABASE: "{{ lookup('env', 'MYSQL_DATABASE') }}"
+    DB_PORT: "3306"
+    DATASOURCE_URL: "jdbc:mysql://localhost:{{ DB_PORT }}/{{ MYSQL_DATABASE }}"
+
   tasks:
   - name: update e upgrade packages
     apt:
       update_cache: yes
+
+  - name: installing docker dependencies
+    apt:
+      name:
+        - apt-transport-https
+        - ca-certificates
+        - curl
+        - gnupg-agent
+        - software-properties-common
+
+  - name: adding Docker GPG Key
+    apt_key:
+      url: https://download.docker.com/linux/ubuntu/gpg
+      state: present
+
+  - name: adding Docker repository
+    apt_repository:
+      repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_lsb.codename }} stable
+      state: present
+
+  - name: installing docker
+    apt:
+      name: docker-ce
+      state: present
+  
+  - name: adding all environment variables
+    lineinfile:
+      path: /etc/environment
+      line: "{{ item }}"
+      state: present
+    with_lines: "{{ vars }}"
+    notify: reload environment
+  
+  - name: creating mysql container
+    docker_container:
+      name: mysql
+      image: mysql
+      env:
+        MYSQL_ROOT_PASSWORD: "{{ MYSQL_ROOT_PASSWORD }}"
+        MYSQL_USER: "{{ DATASOURCE_USERNAME }}"
+        MYSQL_PASSWORD: "{{ DATASOURCE_PASSWORD }}"
+        MYSQL_DATABASE: "{{ MYSQL_DATABASE }}"
+      ports:
+        - "{{ DB_PORT }}:3306"
+      remove_on_exit: yes
 
   - name: installing git
     apt:
@@ -13,4 +67,19 @@
   - name: clone the project
     git:
       repo: "https://github.com/rcaneppele/2771-spring-boot.git"
-      dest: "/home/ubuntu"
+      dest: "/home/ubuntu/challenge-devops"
+      update: yes
+  
+  - name: install maven and jdk
+    apt:
+      name:
+        - maven=3.8.4-1~20.04.1
+        - openjdk-17-jdk
+      state: present
+  
+  - name: build maven project
+    command: mvn clean package
+    args:
+      chdir: "/home/ubuntu/challenge-devops/2771-spring-boot"
+  
+
