@@ -1,0 +1,16 @@
+- hosts: terraform-ansible
+  become: yes
+  tasks:
+  - name: update e upgrade packages
+    apt:
+      update_cache: yes
+
+  - name: installing git
+    apt:
+      name: git
+      state: present
+  
+  - name: clone the project
+    git:
+      repo: "https://github.com/rcaneppele/2771-spring-boot.git"
+      dest: "/home/ubuntu"
