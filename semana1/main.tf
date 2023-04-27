@@ -22,7 +22,7 @@ resource "aws_instance" "app_server" {
                    #!/bin/bash
                    cd /home/ubuntu
                    echo "<h1>Instância criada</h1>" > index.html
-                   nohup busybox httpd -f -p 8080 &
+                   nohup busybox httpd -f -p 8000 &
                    EOF
     tags = {
         Name = "Challenge DevOps Alura"

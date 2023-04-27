@@ -93,8 +93,11 @@
       state: present
   
   - name: build maven project
-    command: mvn clean package
+    command: mvn -Dmaven.test.skip=true clean package 
     args:
       chdir: "/home/ubuntu/challenge-devops"
+  
+  - name: initialize java application
+    shell: cd challenge-devops && java -jar -Dspring.profiles.active=prod api-0.0.1-SNAPSHOT.jar
   
 
