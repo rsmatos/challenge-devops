@@ -2,12 +2,12 @@
   become: yes
 
   vars:
-    MYSQL_ROOT_PASSWORD: "{{ lookup('env', 'MYSQL_ROOT_PASSWORD') }}"
-    DATASOURCE_USERNAME: "{{ lookup('env', 'MYSQL_USER') }}"
-    DATASOURCE_PASSWORD: "{{ lookup('env', 'MYSQL_PASSWORD') }}"
-    MYSQL_DATABASE: "{{ lookup('env', 'MYSQL_DATABASE') }}"
-    DB_PORT: "3306"
-    DATASOURCE_URL: "jdbc:mysql://localhost:{{ DB_PORT }}/{{ MYSQL_DATABASE }}"
+    myvars:
+      MYSQL_ROOT_PASSWORD: "{{ lookup('env', 'MYSQL_ROOT_PASSWORD') }}"
+      DATASOURCE_USERNAME: "{{ lookup('env', 'MYSQL_USER') }}"
+      DATASOURCE_PASSWORD: "{{ lookup('env', 'MYSQL_PASSWORD') }}"
+      MYSQL_DATABASE: "{{ lookup('env', 'MYSQL_DATABASE') }}"
+      DB_PORT: "3306"
 
   tasks:
   - name: update e upgrade packages
@@ -38,26 +38,41 @@
       name: docker-ce
       state: present
   
+  - name: installing python3, pip
+    apt:
+      name:
+        - python3
+        - python3-pip
+      state: present
+
+  - name: installing docker through pip 
+    pip:
+      name: docker==2.7
+      state: present
+  
   - name: adding all environment variables
     lineinfile:
       path: /etc/environment
-      line: "{{ item }}"
-      state: present
-    with_lines: "{{ vars }}"
-    notify: reload environment
+      line: "{{item.key}}={{item.value}}"
+    with_dict: "{{ myvars }}"
   
+  - name: adding db_url environment variable
+    lineinfile:
+      path: /etc/environment
+      line: "DATASOURCE_URL=jdbc:mysql://localhost:{{ myvars.DB_PORT }}/{{ myvars.MYSQL_DATABASE }}"
+
   - name: creating mysql container
     docker_container:
       name: mysql
       image: mysql
       env:
-        MYSQL_ROOT_PASSWORD: "{{ MYSQL_ROOT_PASSWORD }}"
-        MYSQL_USER: "{{ DATASOURCE_USERNAME }}"
-        MYSQL_PASSWORD: "{{ DATASOURCE_PASSWORD }}"
-        MYSQL_DATABASE: "{{ MYSQL_DATABASE }}"
+        MYSQL_ROOT_PASSWORD: "{{ myvars.MYSQL_ROOT_PASSWORD }}"
+        MYSQL_USER: "{{ myvars.DATASOURCE_USERNAME }}"
+        MYSQL_PASSWORD: "{{ myvars.DATASOURCE_PASSWORD }}"
+        MYSQL_DATABASE: "{{ myvars.MYSQL_DATABASE }}"
       ports:
-        - "{{ DB_PORT }}:3306"
-      remove_on_exit: yes
+        - "{{ myvars.DB_PORT }}:3306"
+      auto_remove: yes
 
   - name: installing git
     apt:
@@ -73,13 +88,13 @@
   - name: install maven and jdk
     apt:
       name:
-        - maven=3.8.4-1~20.04.1
+        - maven
         - openjdk-17-jdk
       state: present
   
   - name: build maven project
     command: mvn clean package
     args:
-      chdir: "/home/ubuntu/challenge-devops/2771-spring-boot"
+      chdir: "/home/ubuntu/challenge-devops"
   
 
